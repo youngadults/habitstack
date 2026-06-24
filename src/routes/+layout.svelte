@@ -15,9 +15,37 @@
 	let error = $state('');
 	let loading = $state(false);
 
+	// Check if Supabase is configured
+	const SUPABASE_URL = typeof window !== 'undefined'
+		? (import.meta as any).env?.VITE_SUPABASE_URL ?? ''
+		: '';
+	const hasSupabase = SUPABASE_URL && SUPABASE_URL !== '';
+
+	function generateLocalUserId(): string {
+		let id = localStorage.getItem('stackflow_local_user_id');
+		if (!id) {
+			id = 'local_' + crypto.randomUUID();
+			localStorage.setItem('stackflow_local_user_id', id);
+		}
+		return id;
+	}
+
+	async function handleLocalMode() {
+		const localId = generateLocalUserId();
+		await initializeState(localId);
+		authMode = 'none';
+	}
+
 	let { children } = $props();
 
 	onMount(async () => {
+		if (!hasSupabase) {
+			// No Supabase configured — go straight to local mode
+			await handleLocalMode();
+			ready = true;
+			return;
+		}
+
 		try {
 			const { getSession } = await import('$lib/services/auth');
 			const session = await getSession();
@@ -88,10 +116,17 @@
 	}
 
 	async function handleSignOut() {
-		const { signOut } = await import('$lib/services/auth');
-		await signOut();
+		if (hasSupabase) {
+			const { signOut } = await import('$lib/services/auth');
+			await signOut();
+		}
 		resetState();
-		authMode = 'login';
+		if (hasSupabase) {
+			authMode = 'login';
+		} else {
+			// Local mode — just re-initialize
+			await handleLocalMode();
+		}
 		email = '';
 		password = '';
 		error = '';
@@ -107,7 +142,7 @@
 		</div>
 	</div>
 {:else if !appState.userId}
-	<!-- Auth screens -->
+	<!-- Auth screens (only shown when Supabase is configured) -->
 	<div class="min-h-screen flex items-center justify-center px-4 bg-slate-950">
 		<div class="w-full max-w-sm">
 			<div class="text-center mb-8">

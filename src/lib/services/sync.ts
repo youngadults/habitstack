@@ -1,10 +1,16 @@
 // Offline-first sync service
 // Manages data flow between IndexedDB (local) and Supabase (remote)
+// Falls back to local-only mode when Supabase is not configured
 
 import { getSupabase } from './auth';
 import * as db from './db';
 import type { Stack, Habit, Completion, Achievement, Profile, SyncQueueItem } from '$lib/types';
 import { generateId } from '$lib/utils/helpers';
+
+const SUPABASE_URL = typeof window !== 'undefined'
+	? (import.meta as any).env?.VITE_SUPABASE_URL ?? ''
+	: '';
+const hasSupabase = SUPABASE_URL && SUPABASE_URL !== '';
 
 let isSyncing = false;
 
@@ -13,6 +19,8 @@ export async function pushToSyncQueue(
 	action: SyncQueueItem['action'],
 	data: Record<string, unknown>
 ): Promise<void> {
+	if (!hasSupabase) return; // No-op in local mode
+
 	const item: SyncQueueItem = {
 		id: generateId(),
 		table,
@@ -25,7 +33,7 @@ export async function pushToSyncQueue(
 }
 
 async function processSyncQueue(): Promise<void> {
-	if (isSyncing) return;
+	if (!hasSupabase || isSyncing) return;
 	isSyncing = true;
 
 	try {
@@ -70,6 +78,8 @@ async function processSyncQueue(): Promise<void> {
 
 // Pull from Supabase to update local DB
 export async function pullFromRemote(userId: string): Promise<void> {
+	if (!hasSupabase) return;
+
 	const supabase = getSupabase();
 
 	// Pull stacks
@@ -134,7 +144,7 @@ export async function pullFromRemote(userId: string): Promise<void> {
 
 // Full sync: push local changes, then pull remote
 export async function fullSync(userId: string): Promise<void> {
-	if (!navigator.onLine) return;
+	if (!hasSupabase || !navigator.onLine) return;
 
 	try {
 		await processSyncQueue();
@@ -146,6 +156,8 @@ export async function fullSync(userId: string): Promise<void> {
 
 // Auto-sync when coming back online
 export function setupAutoSync(userId: () => string | null): () => void {
+	if (!hasSupabase) return () => {};
+
 	const handleOnline = () => {
 		const uid = userId();
 		if (uid) fullSync(uid);
