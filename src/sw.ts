@@ -64,7 +64,7 @@ self.addEventListener('fetch', (event) => {
 				.catch(() => {
 					// Fallback to cache
 					return caches.match(request).then((cached) => {
-						return cached || caches.match('/');
+						return cached || caches.match('/') as Promise<Response>;
 					});
 				})
 		);
@@ -99,7 +99,7 @@ self.addEventListener('fetch', (event) => {
 				return response;
 			})
 			.catch(() => {
-				return caches.match(request);
+				return caches.match(request) as Promise<Response>;
 			})
 	);
 });
