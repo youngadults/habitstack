@@ -1,0 +1,12 @@
+import { defineConfig } from '@sveltejs/adapter-vercel';
+
+export default {
+	build: {
+		// Ensure service worker is included
+		rollupOptions: {
+			input: {
+				sw: './src/sw.ts'
+			}
+		}
+	}
+};
