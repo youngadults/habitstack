@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { getAppState, toggleCompletion, createStack, createHabit } from '$lib/stores/app';
-	import { today, formatDate, STACK_COLORS, STACK_ICONS, randomColor, randomIcon } from '$lib/utils/helpers';
-	import { calculateStreak, xpProgressInLevel, levelFromXp } from '$lib/utils/gamification';
+	import { today, formatDate, randomColor, randomIcon } from '$lib/utils/helpers';
+	import { calculateStreak, xpProgressInLevel } from '$lib/utils/gamification';
+	import NewStackModal from '$lib/components/NewStackModal.svelte';
 
 	const appState = getAppState();
 
 	let showNewStack = $state(false);
 	let newStackName = $state('');
 	let newStackTrigger = $state('');
-	let newStackColor = $state<string>('indigo');
-	let newStackIcon = $state('☕');
+	let newStackColor = $state(randomColor());
+	let newStackIcon = $state(randomIcon());
 	let newHabitStackId = $state<string | null>(null);
 	let newHabitName = $state('');
 
@@ -44,6 +45,10 @@
 	async function handleCreateStack() {
 		if (!newStackName.trim() || !newStackTrigger.trim()) return;
 		await createStack(newStackName.trim(), newStackTrigger.trim(), newStackColor, newStackIcon);
+		resetNewStack();
+	}
+
+	function resetNewStack() {
 		newStackName = '';
 		newStackTrigger = '';
 		newStackColor = randomColor();
@@ -113,8 +118,8 @@
 			<p class="text-slate-400 text-sm">{dayName}</p>
 			<h1 class="text-2xl font-bold text-white">{monthName} {dateNum}</h1>
 		</div>
-		<div class="flex items-center gap-3">
-			{#if appState.profile}
+		{#if appState.profile}
+			<div class="flex items-center gap-3">
 				<div class="text-right">
 					<div class="text-sm font-medium text-indigo-400">Level {appState.profile.level}</div>
 					<div class="text-xs text-slate-500">{appState.profile.xp} XP</div>
@@ -122,8 +127,8 @@
 				<div class="w-10 h-10 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-lg">
 					{appState.profile.streak_days > 0 ? '🔥' : '⭐'}
 				</div>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	</div>
 
 	<!-- XP Progress -->
@@ -143,7 +148,7 @@
 		</div>
 	{/if}
 
-	<!-- Stacks -->
+	<!-- Stacks Checklist -->
 	{#if checklist.length === 0}
 		<div class="text-center py-16">
 			<div class="text-6xl mb-4">🏗️</div>
@@ -175,7 +180,7 @@
 							{:else}
 								<span class="text-xs text-slate-400">{stack.completedCount}/{stack.totalCount}</span>
 							{/if}
-							<a href="/stacks/{stack.id}" class="text-slate-400 hover:text-white" aria-label="View stack details">
+							<a href="/stacks/{stack.id}" class="text-slate-400 hover:text-white" aria-label="View {stack.name} details">
 								<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 								</svg>
@@ -215,7 +220,7 @@
 						</div>
 					{/if}
 
-					<!-- Add habit button -->
+					<!-- Add habit inline -->
 					{#if newHabitStackId === stack.id}
 						<div class="px-4 pb-3">
 							<div class="flex gap-2">
@@ -226,14 +231,8 @@
 									class="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 									onkeydown={(e) => e.key === 'Enter' && handleCreateHabit()}
 								/>
-								<button
-									onclick={handleCreateHabit}
-									class="px-3 py-2 bg-indigo-600 rounded-lg text-sm text-white"
-								>Add</button>
-								<button
-									onclick={() => { newHabitStackId = null; newHabitName = ''; }}
-									class="px-3 py-2 bg-slate-700 rounded-lg text-sm text-white"
-								>✕</button>
+								<button onclick={handleCreateHabit} class="px-3 py-2 bg-indigo-600 rounded-lg text-sm text-white">Add</button>
+								<button onclick={() => { newHabitStackId = null; newHabitName = ''; }} class="px-3 py-2 bg-slate-700 rounded-lg text-sm text-white">✕</button>
 							</div>
 						</div>
 					{:else}
@@ -248,7 +247,6 @@
 			{/each}
 		</div>
 
-		<!-- Add stack button -->
 		<button
 			onclick={() => showNewStack = true}
 			class="w-full mt-4 py-3 border border-dashed border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-indigo-500 transition-colors"
@@ -258,74 +256,12 @@
 	{/if}
 </div>
 
-<!-- New Stack Modal -->
-{#if showNewStack}
-	<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-	<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center animate-fade-in" role="dialog" aria-modal="true" onclick={(e) => { if (e.target === e.currentTarget) showNewStack = false; }} onkeydown={(e) => { if (e.key === 'Escape') showNewStack = false; }}>
-		<div class="w-full max-w-lg bg-slate-900 rounded-t-2xl p-6 animate-slide-up safe-bottom">
-			<h2 class="text-lg font-bold text-white mb-4">Create New Stack</h2>
-
-			<div class="space-y-4">
-				<div>
-					<label for="new-stack-name" class="block text-sm font-medium text-slate-300 mb-1">Stack Name</label>
-					<input
-						type="text"
-						bind:value={newStackName}
-						placeholder="Morning Routine"
-						class="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-					/>
-				</div>
-
-				<div>
-					<label for="new-stack-trigger" class="block text-sm font-medium text-slate-300 mb-1">Trigger</label>
-					<input
-						type="text"
-						bind:value={newStackTrigger}
-						placeholder="After I make coffee..."
-						class="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-					/>
-				</div>
-
-				<div>
-					<label class="block text-sm font-medium text-slate-300 mb-1">Color</label>
-					<div class="flex flex-wrap gap-2">
-						{#each STACK_COLORS as color}
-							<button
-								onclick={() => newStackColor = color}
-								class="w-8 h-8 rounded-full bg-{color}-500 {newStackColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}"
-								aria-label="Select {color} color"
-							></button>
-						{/each}
-					</div>
-				</div>
-
-				<div>
-					<label class="block text-sm font-medium text-slate-300 mb-1">Icon</label>
-					<div class="flex flex-wrap gap-2">
-						{#each STACK_ICONS as icon}
-							<button
-								onclick={() => newStackIcon = icon}
-								class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-lg {newStackIcon === icon ? 'ring-2 ring-indigo-500' : ''}"
-								aria-label="Select {icon} icon"
-							>
-								{icon}
-							</button>
-						{/each}
-					</div>
-				</div>
-			</div>
-
-			<div class="flex gap-3 mt-6">
-				<button
-					onclick={() => showNewStack = false}
-					class="flex-1 py-3 bg-slate-700 rounded-lg font-medium text-white"
-				>Cancel</button>
-				<button
-					onclick={handleCreateStack}
-					disabled={!newStackName.trim() || !newStackTrigger.trim()}
-					class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed rounded-lg font-medium text-white"
-				>Create</button>
-			</div>
-		</div>
-	</div>
-{/if}
+<NewStackModal
+	bind:show={showNewStack}
+	bind:name={newStackName}
+	bind:trigger={newStackTrigger}
+	bind:color={newStackColor}
+	bind:icon={newStackIcon}
+	onclose={resetNewStack}
+	oncreate={handleCreateStack}
+/>
