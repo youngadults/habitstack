@@ -44,15 +44,22 @@ cd stackflow
 npm install
 ```
 
-### Configure Supabase
+## Local Mode (No Supabase)
+
+StackFlow works without Supabase! If `VITE_SUPABASE_URL` is not set, the app runs in **local mode**:
+
+- No login screen — you're dropped straight into the app
+- All data is stored in your browser's IndexedDB
+- No cloud sync, but everything works offline
+- Your data persists across sessions (stored locally)
+
+This is perfect for trying the app out. When you're ready for cloud sync and multi-device support, set up Supabase.
+
+### Configure Supabase (Optional)
 
 1. Create a [Supabase](https://supabase.com) project
 2. Run the schema in `supabase/schema.sql` in the SQL editor
-3. Copy `.env.example` to `.env` and fill in your values:
-
-```bash
-cp .env.example .env
-```
+3. Set environment variables:
 
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
