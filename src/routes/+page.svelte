@@ -109,6 +109,13 @@
 
 	let checklist = $derived(getStackChecklist());
 	let progress = $derived(appState.profile ? xpProgressInLevel(appState.profile.xp) : null);
+
+	// Streak nudge: habits with streaks >= 3 that haven't been completed today
+	let streakAtRisk = $derived(
+		appState.habits
+			.filter(h => !isHabitCompletedToday(h.id) && getHabitStreak(h.id) >= 3)
+			.map(h => ({ name: h.name, streak: getHabitStreak(h.id) }))
+	);
 </script>
 
 <div class="animate-fade-in">
@@ -146,6 +153,27 @@
 			</div>
 			<div class="text-xs text-slate-500 mt-1 text-center">{progress.current} / {progress.needed} XP</div>
 		</div>
+	{/if}
+
+	<!-- Streak Nudge -->
+	{#if streakAtRisk.length > 0}
+		{#if streakAtRisk.length === 1}
+			<div class="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
+				<span class="text-2xl">⚠️</span>
+				<div>
+					<p class="text-sm font-medium text-amber-400">Streak at risk!</p>
+					<p class="text-xs text-slate-400">{streakAtRisk[0].name} — {streakAtRisk[0].streak}-day streak</p>
+				</div>
+			</div>
+		{:else}
+			<div class="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
+				<span class="text-2xl">⚠️</span>
+				<div>
+					<p class="text-sm font-medium text-amber-400">{streakAtRisk.length} streaks at risk</p>
+					<p class="text-xs text-slate-400">Complete them today to keep your streaks alive</p>
+				</div>
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Stacks Checklist -->

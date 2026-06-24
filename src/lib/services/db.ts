@@ -2,15 +2,16 @@
 // Uses idb library for clean async API
 
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Stack, Habit, Completion, Profile, SyncQueueItem } from '$lib/types';
+import type { Stack, Habit, Completion, Achievement, Profile, SyncQueueItem } from '$lib/types';
 
 const DB_NAME = 'stackflow';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 interface StackFlowDB {
 	stacks: Stack;
 	habits: Habit;
 	completions: Completion;
+	achievements: Achievement;
 	profile: Profile;
 	syncQueue: SyncQueueItem;
 }
@@ -21,30 +22,42 @@ async function getDB(): Promise<IDBPDatabase<StackFlowDB>> {
 	if (dbInstance) return dbInstance;
 
 	dbInstance = await openDB<StackFlowDB>(DB_NAME, DB_VERSION, {
-		upgrade(db) {
-			// Stacks store
-			const stackStore = db.createObjectStore('stacks', { keyPath: 'id' });
-			stackStore.createIndex('user_id', 'user_id');
-			stackStore.createIndex('sort_order', 'sort_order');
+		upgrade(db, oldVersion) {
+			if (oldVersion < 1) {
+				// Stacks store
+				const stackStore = db.createObjectStore('stacks', { keyPath: 'id' });
+				stackStore.createIndex('user_id', 'user_id');
+				stackStore.createIndex('sort_order', 'sort_order');
 
-			// Habits store
-			const habitStore = db.createObjectStore('habits', { keyPath: 'id' });
-			habitStore.createIndex('stack_id', 'stack_id');
-			habitStore.createIndex('user_id', 'user_id');
+				// Habits store
+				const habitStore = db.createObjectStore('habits', { keyPath: 'id' });
+				habitStore.createIndex('stack_id', 'stack_id');
+				habitStore.createIndex('user_id', 'user_id');
 
-			// Completions store - compound key via id, index by habit_id + date
-			const completionStore = db.createObjectStore('completions', { keyPath: 'id' });
-			completionStore.createIndex('habit_id', 'habit_id');
-			completionStore.createIndex('completed_at', 'completed_at');
-			completionStore.createIndex('user_id', 'user_id');
-			completionStore.createIndex('habit_date', ['habit_id', 'completed_at'], { unique: true });
+				// Completions store
+				const completionStore = db.createObjectStore('completions', { keyPath: 'id' });
+				completionStore.createIndex('habit_id', 'habit_id');
+				completionStore.createIndex('completed_at', 'completed_at');
+				completionStore.createIndex('user_id', 'user_id');
+				completionStore.createIndex('habit_date', ['habit_id', 'completed_at'], { unique: true });
 
-			// Profile store - single user profile
-			db.createObjectStore('profile', { keyPath: 'id' });
+				// Profile store
+				db.createObjectStore('profile', { keyPath: 'id' });
 
-			// Sync queue for pending mutations
-			const syncStore = db.createObjectStore('syncQueue', { keyPath: 'id' });
-			syncStore.createIndex('table', 'table');
+				// Sync queue
+				const syncStore = db.createObjectStore('syncQueue', { keyPath: 'id' });
+				syncStore.createIndex('table', 'table');
+			}
+
+			if (oldVersion < 2) {
+				// Achievements store
+				if (!db.objectStoreNames.contains('achievements')) {
+					const achievementStore = db.createObjectStore('achievements', { keyPath: 'id' });
+					achievementStore.createIndex('user_id', 'user_id');
+					achievementStore.createIndex('badge_key', 'badge_key');
+					achievementStore.createIndex('user_badge', ['user_id', 'badge_key'], { unique: true });
+				}
+			}
 		}
 	});
 
@@ -77,7 +90,6 @@ export async function saveStack(stack: Stack): Promise<void> {
 export async function deleteStack(id: string): Promise<void> {
 	const db = await getDB();
 	await db.delete('stacks', id);
-	// Also delete all habits in this stack
 	const habits = await getHabitsByStack(id);
 	const tx = db.transaction('habits', 'readwrite');
 	for (const habit of habits) {
@@ -111,7 +123,6 @@ export async function getAllHabitsByUser(userId: string): Promise<Habit[]> {
 
 export async function deleteHabit(id: string): Promise<void> {
 	const db = await getDB();
-	// Delete completions for this habit too
 	const completions = await getCompletionsByHabit(id);
 	const tx = db.transaction(['habits', 'completions'], 'readwrite');
 	await tx.objectStore('habits').delete(id);
@@ -165,6 +176,18 @@ export async function getProfile(userId: string): Promise<Profile | undefined> {
 export async function saveProfile(profile: Profile): Promise<void> {
 	const db = await getDB();
 	await db.put('profile', profile);
+}
+
+// ============ ACHIEVEMENTS ============
+
+export async function getAchievementsByUser(userId: string): Promise<Achievement[]> {
+	const db = await getDB();
+	return db.getAllFromIndex('achievements', 'user_id', userId);
+}
+
+export async function saveAchievement(achievement: Achievement): Promise<void> {
+	const db = await getDB();
+	await db.put('achievements', achievement);
 }
 
 // ============ SYNC QUEUE ============

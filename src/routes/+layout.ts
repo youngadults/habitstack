@@ -1,10 +1,7 @@
-import { redirect } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
-export const load: LayoutLoad = async ({ url }) => {
-	// Public routes that don't require auth
-	const publicPaths = ['/auth/login', '/auth/signup'];
-
-	// We'll handle auth state client-side since this is a PWA
+export const load: LayoutLoad = async () => {
+	// Auth is handled client-side in +layout.svelte
+	// This is a PWA — all auth state is managed via IndexedDB + Supabase client
 	return {};
 };

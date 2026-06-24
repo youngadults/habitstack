@@ -141,6 +141,9 @@ CREATE POLICY "Users can view own achievements" ON achievements
 CREATE POLICY "Users can create own achievements" ON achievements
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+CREATE INDEX idx_achievements_user_id ON achievements(user_id);
+CREATE INDEX idx_achievements_badge_key ON achievements(badge_key);
+
 -- ============ REALTIME SUBSCRIPTIONS ============
 -- Enable realtime for sync
 ALTER PUBLICATION supabase_realtime ADD TABLE stacks;

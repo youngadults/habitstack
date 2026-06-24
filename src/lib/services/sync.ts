@@ -3,7 +3,7 @@
 
 import { getSupabase } from './auth';
 import * as db from './db';
-import type { Stack, Habit, Completion, Profile, SyncQueueItem } from '$lib/types';
+import type { Stack, Habit, Completion, Achievement, Profile, SyncQueueItem } from '$lib/types';
 import { generateId } from '$lib/utils/helpers';
 
 let isSyncing = false;
@@ -117,6 +117,18 @@ export async function pullFromRemote(userId: string): Promise<void> {
 
 	if (remoteProfile) {
 		await db.saveProfile(remoteProfile as Profile);
+	}
+
+	// Pull achievements
+	const { data: remoteAchievements } = await supabase
+		.from('achievements')
+		.select('*')
+		.eq('user_id', userId);
+
+	if (remoteAchievements) {
+		for (const achievement of remoteAchievements as Achievement[]) {
+			await db.saveAchievement(achievement);
+		}
 	}
 }
 

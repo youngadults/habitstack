@@ -84,12 +84,16 @@ For other platforms, install the appropriate SvelteKit adapter (e.g., `@sveltejs
 ```
 src/
 ├── lib/
+│   ├── components/
+│   │   └── NewStackModal.svelte  # Stack creation modal
 │   ├── services/
 │   │   ├── auth.ts       # Supabase auth client
 │   │   ├── db.ts          # IndexedDB offline storage
-│   │   └── sync.ts        # Offline-to-online sync
+│   │   ├── sync.ts        # Offline-to-online sync
+│   │   └── pwa.ts          # Service worker registration
 │   ├── stores/
-│   │   └── app.ts         # Svelte 5 runes-based state
+│   │   ├── app.ts         # Svelte 5 runes-based state (CRUD)
+│   │   └── profile.ts     # Profile, XP, achievement logic
 │   ├── types/
 │   │   └── index.ts       # TypeScript type definitions
 │   └── utils/
@@ -97,16 +101,13 @@ src/
 │       ├── gamification.ts # XP, levels, streaks, heatmap
 │       └── helpers.ts      # Date, color, ID utilities
 ├── routes/
-│   ├── +layout.svelte     # App shell with bottom nav
+│   ├── +layout.svelte     # App shell, auth, bottom nav
 │   ├── +page.svelte       # Today view (checklist)
-│   ├── auth/
-│   │   ├── login/         # Sign in
-│   │   └── signup/        # Create account
 │   ├── stacks/
 │   │   ├── +page.svelte   # Stack management
 │   │   └── [id]/          # Individual stack detail
 │   ├── stats/             # Heatmap & statistics
-│   └── achievements/       # Badge gallery
+│   └── achievements/      # Badge gallery
 ├── app.css                # Global styles + Tailwind
 └── app.html               # HTML shell
 ```
@@ -143,11 +144,17 @@ This means the app is fully functional offline. When connectivity returns, chang
 
 ## PWA Setup
 
-The app includes a web manifest at `static/manifest.webmanifest`. To complete PWA setup:
+The app includes a web manifest at `static/manifest.webmanifest` and icons at `static/icon-192.png` and `static/icon-512.png`.
 
-1. Generate PNG icons at 192x192 and 512x512 from the SVG in `static/`
-2. Place as `static/icon-192.png` and `static/icon-512.png`
-3. The service worker at `src/sw.ts` handles caching
+The service worker source is at `src/sw.ts`. It's built separately via:
+
+```bash
+npm run build:sw
+```
+
+This outputs `static/service-worker.js`. The full build (`npm run build`) runs this automatically.
+
+The service worker uses a network-first strategy for navigation and cache-first for static assets, with IndexedDB as the data layer for offline operation.
 
 ## Security
 

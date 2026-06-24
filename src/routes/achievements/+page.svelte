@@ -1,32 +1,61 @@
 <script lang="ts">
-	import { getAppState } from '$lib/stores/app';
-	import { BADGES, checkAllAchievements } from '$lib/utils/badges';
+	import { getAppState, checkAndUnlockAchievements } from '$lib/stores/app';
+	import { BADGES } from '$lib/utils/badges';
+	import { onMount } from 'svelte';
 
 	const appState = getAppState();
 
-	// Determine which badges are unlocked based on profile stats
-	let badgeStatus = $derived(
-		checkAllAchievements(
-			appState.profile?.longest_streak ?? 0,
-			appState.profile?.total_completions ?? 0,
-			appState.profile?.level ?? 0,
-			appState.stacks.length,
-			false
-		)
+	// Check for new achievements on mount
+	onMount(() => {
+		checkAndUnlockAchievements();
+	});
+
+	// Build a set of unlocked badge keys from persisted achievements
+	let unlockedSet = $derived(new Set(appState.achievements.map(a => a.badge_key)));
+
+	// Also check dynamic badges (streak, completion, level, stack count)
+	let dynamicChecks = $derived(
+		(() => {
+			const checks: Record<string, boolean> = {};
+			for (const a of appState.achievements) {
+				checks[a.badge_key] = true;
+			}
+			// Also compute from current stats for real-time display
+			const p = appState.profile;
+			if (p) {
+				if (p.longest_streak >= 3) checks['streak_3'] = true;
+				if (p.longest_streak >= 7) checks['streak_7'] = true;
+				if (p.longest_streak >= 14) checks['streak_14'] = true;
+				if (p.longest_streak >= 30) checks['streak_30'] = true;
+				if (p.longest_streak >= 100) checks['streak_100'] = true;
+				if (p.total_completions >= 1) checks['first_habit'] = true;
+				if (p.total_completions >= 10) checks['complete_10'] = true;
+				if (p.total_completions >= 50) checks['complete_50'] = true;
+				if (p.total_completions >= 100) checks['complete_100'] = true;
+				if (p.total_completions >= 500) checks['complete_500'] = true;
+				if (p.total_completions >= 1000) checks['complete_1000'] = true;
+				if (p.level >= 5) checks['level_5'] = true;
+				if (p.level >= 10) checks['level_10'] = true;
+				if (p.level >= 25) checks['level_25'] = true;
+				if (p.level >= 50) checks['level_50'] = true;
+			}
+			if (appState.stacks.length >= 1) checks['first_stack'] = true;
+			if (appState.stacks.length >= 5) checks['stack_5'] = true;
+			return checks;
+		})()
 	);
 
-	let unlockedSet = $derived(new Set(badgeStatus.filter(b => b.shouldUnlock).map(b => b.badgeKey)));
-
-	// Group by category
 	let categories = $derived([
-		{ name: 'Streaks', key: 'streak', badges: BADGES.filter(b => b.category === 'streak') },
-		{ name: 'Completions', key: 'completion', badges: BADGES.filter(b => b.category === 'completion') },
-		{ name: 'Stacks', key: 'stack', badges: BADGES.filter(b => b.category === 'stack') },
-		{ name: 'Levels', key: 'level', badges: BADGES.filter(b => b.category === 'level') },
-		{ name: 'Special', key: 'special', badges: BADGES.filter(b => b.category === 'special') },
+		{ name: 'Streaks', badges: BADGES.filter(b => b.category === 'streak') },
+		{ name: 'Completions', badges: BADGES.filter(b => b.category === 'completion') },
+		{ name: 'Stacks', badges: BADGES.filter(b => b.category === 'stack') },
+		{ name: 'Levels', badges: BADGES.filter(b => b.category === 'level') },
+		{ name: 'Special', badges: BADGES.filter(b => b.category === 'special') },
 	]);
 
-	let unlockedCount = $derived(unlockedSet.size);
+	let unlockedCount = $derived(
+		BADGES.filter(b => dynamicChecks[b.key]).length
+	);
 	let totalCount = $derived(BADGES.length);
 </script>
 
@@ -49,7 +78,7 @@
 					<h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">{category.name}</h2>
 					<div class="grid grid-cols-2 gap-3">
 						{#each category.badges as badge (badge.key)}
-							{@const isUnlocked = unlockedSet.has(badge.key)}
+							{@const isUnlocked = dynamicChecks[badge.key] === true}
 							<div class="rounded-xl border {isUnlocked ? 'border-amber-500/30 bg-amber-500/5' : 'border-slate-800 bg-slate-900'} p-3 transition-all">
 								<div class="flex items-start gap-3">
 									<span class="text-2xl {isUnlocked ? '' : 'grayscale opacity-30'}">{badge.icon}</span>

@@ -92,7 +92,7 @@
 								class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
 							/>
 							<div>
-								<label class="text-xs text-slate-400 mb-1 block">Color</label>
+								<span class="text-xs text-slate-400 mb-1 block">Color</span>
 								<div class="flex flex-wrap gap-2">
 									{#each STACK_COLORS as color}
 										<button
@@ -104,7 +104,7 @@
 								</div>
 							</div>
 							<div>
-								<label class="text-xs text-slate-400 mb-1 block">Icon</label>
+								<span class="text-xs text-slate-400 mb-1 block">Icon</span>
 								<div class="flex flex-wrap gap-2">
 									{#each STACK_ICONS as icon}
 										<button

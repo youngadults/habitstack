@@ -1,33 +1,36 @@
 // Svelte stores for app state management
 // Uses runes ($state) for Svelte 5 reactivity
 
-import type { Stack, Habit, Completion, Profile, StackChecklist, HabitWithCompletions } from '$lib/types';
+import type { Stack, Habit, Completion, Achievement, Profile, StackChecklist, HabitWithCompletions } from '$lib/types';
 import * as db from '$lib/services/db';
 import * as sync from '$lib/services/sync';
-import { calculateStreak, calculateXPGain, checkLevelUp } from '$lib/utils/gamification';
+import { calculateStreak } from '$lib/utils/gamification';
 import { generateId, today } from '$lib/utils/helpers';
-import { levelFromXp } from '$lib/utils/gamification';
+import {
+	updateProfileOnComplete as doUpdateProfileComplete,
+	updateProfileOnUncomplete as doUpdateProfileUncomplete,
+	checkAndUnlockAchievements as doCheckAchievements,
+	checkIfFullStackToday
+} from './profile';
 
 // App state using Svelte 5 runes
 let stacks = $state<Stack[]>([]);
 let habits = $state<Habit[]>([]);
 let completions = $state<Completion[]>([]);
+let achievements = $state<Achievement[]>([]);
 let profile = $state<Profile | null>(null);
 let userId = $state<string | null>(null);
 let isLoading = $state(true);
-
-// Derived state
-let stacksChecklist = $derived<StackChecklist[]>([]);
 
 export function getAppState() {
 	return {
 		get stacks() { return stacks; },
 		get habits() { return habits; },
 		get completions() { return completions; },
+		get achievements() { return achievements; },
 		get profile() { return profile; },
 		get userId() { return userId; },
 		get isLoading() { return isLoading; },
-		get stacksChecklist() { return stacksChecklist; },
 	};
 }
 
@@ -37,53 +40,43 @@ export async function initializeState(uid: string): Promise<void> {
 	isLoading = true;
 
 	try {
-		// Load from IndexedDB first (instant)
-		const [dbStacks, dbHabits, dbCompletions, dbProfile] = await Promise.all([
+		const [dbStacks, dbHabits, dbCompletions, dbProfile, dbAchievements] = await Promise.all([
 			db.getAllStacks(uid),
 			db.getAllHabitsByUser(uid),
 			db.getCompletionsByUser(uid),
-			db.getProfile(uid)
+			db.getProfile(uid),
+			db.getAchievementsByUser(uid)
 		]);
 
 		stacks = dbStacks;
 		habits = dbHabits;
 		completions = dbCompletions;
+		achievements = dbAchievements;
 
 		if (dbProfile) {
 			profile = dbProfile;
 		} else {
-			// Create default profile
 			const newProfile: Profile = {
-				id: uid,
-				xp: 0,
-				level: 0,
-				streak_days: 0,
-				longest_streak: 0,
-				total_completions: 0,
-				theme: 'default',
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
+				id: uid, xp: 0, level: 0, streak_days: 0,
+				longest_streak: 0, total_completions: 0, theme: 'default',
+				created_at: new Date().toISOString(), updated_at: new Date().toISOString()
 			};
 			await db.saveProfile(newProfile);
 			profile = newProfile;
 		}
 
-		// Then sync with remote
 		await sync.fullSync(uid);
 
-		// Reload after sync
-		const [syncedStacks, syncedHabits, syncedCompletions, syncedProfile] = await Promise.all([
-			db.getAllStacks(uid),
-			db.getAllHabitsByUser(uid),
-			db.getCompletionsByUser(uid),
-			db.getProfile(uid)
+		const [sStacks, sHabits, sCompletions, sProfile, sAchievements] = await Promise.all([
+			db.getAllStacks(uid), db.getAllHabitsByUser(uid),
+			db.getCompletionsByUser(uid), db.getProfile(uid), db.getAchievementsByUser(uid)
 		]);
 
-		stacks = syncedStacks;
-		habits = syncedHabits;
-		completions = syncedCompletions;
-		if (syncedProfile) profile = syncedProfile;
-
+		stacks = sStacks;
+		habits = sHabits;
+		completions = sCompletions;
+		if (sProfile) profile = sProfile;
+		achievements = sAchievements;
 	} finally {
 		isLoading = false;
 	}
@@ -93,6 +86,7 @@ export function resetState(): void {
 	stacks = [];
 	habits = [];
 	completions = [];
+	achievements = [];
 	profile = null;
 	userId = null;
 	isLoading = true;
@@ -103,19 +97,10 @@ export function resetState(): void {
 
 export async function createStack(name: string, trigger: string, color: string, icon: string): Promise<Stack> {
 	if (!userId) throw new Error('Not authenticated');
-
 	const stack: Stack = {
-		id: generateId(),
-		user_id: userId,
-		name,
-		trigger,
-		color,
-		icon,
-		sort_order: stacks.length,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString()
+		id: generateId(), user_id: userId, name, trigger, color, icon,
+		sort_order: stacks.length, created_at: new Date().toISOString(), updated_at: new Date().toISOString()
 	};
-
 	await db.saveStack(stack);
 	await sync.pushToSyncQueue('stacks', 'insert', stack as unknown as Record<string, unknown>);
 	stacks = [...stacks, stack];
@@ -140,19 +125,11 @@ export async function removeStack(id: string): Promise<void> {
 
 export async function createHabit(stackId: string, name: string, description?: string): Promise<Habit> {
 	if (!userId) throw new Error('Not authenticated');
-
 	const stackHabits = habits.filter(h => h.stack_id === stackId);
 	const habit: Habit = {
-		id: generateId(),
-		stack_id: stackId,
-		user_id: userId,
-		name,
-		description,
-		sort_order: stackHabits.length,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString()
+		id: generateId(), stack_id: stackId, user_id: userId, name, description,
+		sort_order: stackHabits.length, created_at: new Date().toISOString(), updated_at: new Date().toISOString()
 	};
-
 	await db.saveHabit(habit);
 	await sync.pushToSyncQueue('habits', 'insert', habit as unknown as Record<string, unknown>);
 	habits = [...habits, habit];
@@ -182,100 +159,44 @@ export async function toggleCompletion(habitId: string, date?: string): Promise<
 	const existing = completions.find(c => c.habit_id === habitId && c.completed_at === completedDate);
 
 	if (existing) {
-		// Uncomplete
 		await db.deleteCompletion(existing.id);
 		await sync.pushToSyncQueue('completions', 'delete', { id: existing.id });
 		completions = completions.filter(c => c.id !== existing.id);
-		await updateProfileOnUncomplete();
+		if (profile) {
+			profile = await doUpdateProfileUncomplete(profile);
+		}
 		return false;
-	} else {
-		// Complete
-		const completion: Completion = {
-			id: generateId(),
-			habit_id: habitId,
-			user_id: userId,
-			completed_at: completedDate,
-			created_at: new Date().toISOString()
-		};
-		await db.saveCompletion(completion);
-		await sync.pushToSyncQueue('completions', 'insert', completion as unknown as Record<string, unknown>);
-		completions = [...completions, completion];
-		await updateProfileOnComplete();
-		return true;
 	}
-}
 
-async function updateProfileOnComplete(): Promise<void> {
-	if (!profile || !userId) return;
-
-	const newTotal = profile.total_completions + 1;
-	const habitDates = completions.map(c => c.completed_at);
-	const newStreak = calculateStreak(habitDates);
-	const newLongest = Math.max(profile.longest_streak, newStreak);
-
-	// Calculate XP for this completion
-	const todayCompletions = completions.filter(c => c.completed_at === today());
-	const todayHabitsCount = todayCompletions.length;
-	const isFullStack = checkIfFullStackToday();
-	const xpGain = calculateXPGain(todayHabitsCount, newStreak, isFullStack);
-	const newXp = profile.xp + xpGain.total;
-	const newLevel = levelFromXp(newXp);
-
-	const updatedProfile: Profile = {
-		...profile,
-		xp: newXp,
-		level: newLevel,
-		streak_days: newStreak,
-		longest_streak: newLongest,
-		total_completions: newTotal,
-		updated_at: new Date().toISOString()
+	const completion: Completion = {
+		id: generateId(), habit_id: habitId, user_id: userId,
+		completed_at: completedDate, created_at: new Date().toISOString()
 	};
+	await db.saveCompletion(completion);
+	await sync.pushToSyncQueue('completions', 'insert', completion as unknown as Record<string, unknown>);
+	completions = [...completions, completion];
 
-	await db.saveProfile(updatedProfile);
-	await sync.pushToSyncQueue('profiles', 'update', updatedProfile as unknown as Record<string, unknown>);
-	profile = updatedProfile;
-}
-
-async function updateProfileOnUncomplete(): Promise<void> {
-	if (!profile || !userId) return;
-
-	const newTotal = Math.max(0, profile.total_completions - 1);
-	const habitDates = completions.map(c => c.completed_at);
-	const newStreak = calculateStreak(habitDates);
-
-	// Recalculate level from remaining XP
-	// Deduct XP (simplified — just recalculate)
-	const todayCompletions = completions.filter(c => c.completed_at === today());
-	const isFullStack = checkIfFullStackToday();
-	const xpGain = calculateXPGain(todayCompletions.length, newStreak, isFullStack);
-	// We recalculate total XP by removing the last gain
-	// This is approximate — for exact, we'd need to track per-completion XP
-	const newXp = Math.max(0, profile.xp - 10); // Deduct base XP for one habit
-	const newLevel = levelFromXp(newXp);
-
-	const updatedProfile: Profile = {
-		...profile,
-		xp: newXp,
-		level: newLevel,
-		streak_days: newStreak,
-		total_completions: newTotal,
-		updated_at: new Date().toISOString()
-	};
-
-	await db.saveProfile(updatedProfile);
-	await sync.pushToSyncQueue('profiles', 'update', updatedProfile as unknown as Record<string, unknown>);
-	profile = updatedProfile;
-}
-
-function checkIfFullStackToday(): boolean {
-	const todayStr = today();
-	for (const stack of stacks) {
-		const stackHabits = habits.filter(h => h.stack_id === stack.id);
-		if (stackHabits.length === 0) continue;
-		const allComplete = stackHabits.every(h =>
-			completions.some(c => c.habit_id === h.id && c.completed_at === todayStr)
+	if (profile) {
+		profile = await doUpdateProfileComplete(profile, completions, stacks, habits);
+		// Check for new achievements
+		const result = await doCheckAchievements(
+			profile, achievements, stacks, userId!, checkIfFullStackToday(stacks, habits, completions)
 		);
-		if (allComplete) return true;
+		if (result.newAchievements.length > 0) {
+			achievements = [...achievements, ...result.newAchievements];
+		}
 	}
-	return false;
+
+	return true;
+}
+
+export async function checkAndUnlockAchievements(): Promise<string[]> {
+	if (!profile || !userId) return [];
+	const result = await doCheckAchievements(
+		profile, achievements, stacks, userId, checkIfFullStackToday(stacks, habits, completions)
+	);
+	if (result.newAchievements.length > 0) {
+		achievements = [...achievements, ...result.newAchievements];
+	}
+	return result.badgeKeys;
 }
