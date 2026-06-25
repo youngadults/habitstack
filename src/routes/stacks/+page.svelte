@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getAppState, removeStack, updateStack } from '$lib/stores/app.svelte';
-	import { STACK_COLORS, STACK_ICONS } from '$lib/utils/helpers';
+	import { STACK_COLORS, STACK_ICONS, colorClasses, colorBg } from '$lib/utils/helpers';
 
 	const appState = getAppState();
 
@@ -33,28 +33,6 @@
 		await removeStack(id);
 		showDeleteConfirm = null;
 		editingStackId = null;
-	}
-
-	function colorClasses(color: string): string {
-		const map: Record<string, string> = {
-			indigo: 'bg-indigo-500/20 border-indigo-500/30',
-			violet: 'bg-violet-500/20 border-violet-500/30',
-			fuchsia: 'bg-fuchsia-500/20 border-fuchsia-500/30',
-			pink: 'bg-pink-500/20 border-pink-500/30',
-			rose: 'bg-rose-500/20 border-rose-500/30',
-			red: 'bg-red-500/20 border-red-500/30',
-			orange: 'bg-orange-500/20 border-orange-500/30',
-			amber: 'bg-amber-500/20 border-amber-500/30',
-			yellow: 'bg-yellow-500/20 border-yellow-500/30',
-			lime: 'bg-lime-500/20 border-lime-500/30',
-			green: 'bg-green-500/20 border-green-500/30',
-			emerald: 'bg-emerald-500/20 border-emerald-500/30',
-			teal: 'bg-teal-500/20 border-teal-500/30',
-			cyan: 'bg-cyan-500/20 border-cyan-500/30',
-			sky: 'bg-sky-500/20 border-sky-500/30',
-			blue: 'bg-blue-500/20 border-blue-500/30',
-		};
-		return map[color] ?? map.indigo;
 	}
 </script>
 
@@ -97,7 +75,7 @@
 									{#each STACK_COLORS as color}
 										<button
 											onclick={() => editColor = color}
-											class="w-7 h-7 rounded-full bg-{color}-500 {editColor === color ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : ''}"
+											class="w-7 h-7 rounded-full {colorBg(color)} {editColor === color ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : ''}"
 											aria-label="Select {color} color"
 										></button>
 									{/each}
@@ -146,7 +124,7 @@
 							<div class="mt-3 space-y-1">
 								{#each appState.habits.filter(h => h.stack_id === stack.id) as habit (habit.id)}
 									<div class="flex items-center gap-2 text-sm text-slate-300 py-1">
-										<span class="w-1.5 h-1.5 rounded-full bg-{stack.color}-500"></span>
+										<span class="w-1.5 h-1.5 rounded-full {colorBg(stack.color)}"></span>
 										{habit.name}
 									</div>
 								{/each}

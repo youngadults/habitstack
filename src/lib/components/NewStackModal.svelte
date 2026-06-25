@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { STACK_COLORS, STACK_ICONS } from '$lib/utils/helpers';
+	import { STACK_COLORS, STACK_ICONS, colorBg } from '$lib/utils/helpers';
 
 	let { onclose, oncreate, show = $bindable(false), name = $bindable(''), trigger = $bindable(''), color = $bindable('indigo'), icon = $bindable('☕') } = $props<{
 		onclose: () => void;
@@ -55,7 +55,7 @@
 						{#each STACK_COLORS as c}
 							<button
 								onclick={() => color = c}
-								class="w-8 h-8 rounded-full bg-{c}-500 {color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}"
+								class="w-8 h-8 rounded-full {colorBg(c)} {color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}"
 								aria-label="Select {c} color"
 							></button>
 						{/each}

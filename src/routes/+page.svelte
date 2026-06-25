@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getAppState, toggleCompletion, createStack, createHabit } from '$lib/stores/app.svelte';
-	import { today, formatDate, randomColor, randomIcon } from '$lib/utils/helpers';
+	import { today, formatDate, randomColor, randomIcon, colorClasses, completedBg } from '$lib/utils/helpers';
 	import { calculateStreak, xpProgressInLevel } from '$lib/utils/gamification';
 	import NewStackModal from '$lib/components/NewStackModal.svelte';
 
@@ -72,39 +72,6 @@
 
 	function isHabitCompletedToday(habitId: string): boolean {
 		return appState.completions.some(c => c.habit_id === habitId && c.completed_at === todayStr);
-	}
-
-	function colorClasses(color: string): string {
-		const map: Record<string, string> = {
-			indigo: 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400',
-			violet: 'bg-violet-500/20 border-violet-500/30 text-violet-400',
-			fuchsia: 'bg-fuchsia-500/20 border-fuchsia-500/30 text-fuchsia-400',
-			pink: 'bg-pink-500/20 border-pink-500/30 text-pink-400',
-			rose: 'bg-rose-500/20 border-rose-500/30 text-rose-400',
-			red: 'bg-red-500/20 border-red-500/30 text-red-400',
-			orange: 'bg-orange-500/20 border-orange-500/30 text-orange-400',
-			amber: 'bg-amber-500/20 border-amber-500/30 text-amber-400',
-			yellow: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400',
-			lime: 'bg-lime-500/20 border-lime-500/30 text-lime-400',
-			green: 'bg-green-500/20 border-green-500/30 text-green-400',
-			emerald: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400',
-			teal: 'bg-teal-500/20 border-teal-500/30 text-teal-400',
-			cyan: 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400',
-			sky: 'bg-sky-500/20 border-sky-500/30 text-sky-400',
-			blue: 'bg-blue-500/20 border-blue-500/30 text-blue-400',
-		};
-		return map[color] ?? map.indigo;
-	}
-
-	function completedBg(color: string): string {
-		const map: Record<string, string> = {
-			indigo: 'bg-indigo-600', violet: 'bg-violet-600', fuchsia: 'bg-fuchsia-600',
-			pink: 'bg-pink-600', rose: 'bg-rose-600', red: 'bg-red-600',
-			orange: 'bg-orange-600', amber: 'bg-amber-600', yellow: 'bg-yellow-600',
-			lime: 'bg-lime-600', green: 'bg-green-600', emerald: 'bg-emerald-600',
-			teal: 'bg-teal-600', cyan: 'bg-cyan-600', sky: 'bg-sky-600', blue: 'bg-blue-600',
-		};
-		return map[color] ?? map.indigo;
 	}
 
 	let checklist = $derived(getStackChecklist());

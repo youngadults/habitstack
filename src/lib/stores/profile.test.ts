@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkIfFullStackToday } from './profile.svelte';
+import { checkIfFullStackToday } from './profile';
 import type { Stack, Habit, Completion } from '$lib/types';
 
 describe('checkIfFullStackToday', () => {

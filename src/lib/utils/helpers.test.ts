@@ -6,7 +6,10 @@ import {
 	isToday,
 	isYesterday,
 	generateDateRange,
-	generateId
+	generateId,
+	colorClasses,
+	completedBg,
+	colorBg
 } from '$lib/utils/helpers';
 
 describe('Date utilities', () => {
@@ -88,5 +91,34 @@ describe('generateId', () => {
 	it('generates unique IDs', () => {
 		const ids = new Set(Array.from({ length: 100 }, () => generateId()));
 		expect(ids.size).toBe(100);
+	});
+});
+
+describe('color utilities', () => {
+	it('colorClasses returns correct classes for known colors', () => {
+		expect(colorClasses('indigo')).toContain('bg-indigo-500/20');
+		expect(colorClasses('emerald')).toContain('bg-emerald-500/20');
+	});
+
+	it('colorClasses falls back to indigo for unknown colors', () => {
+		expect(colorClasses('nonexistent')).toContain('bg-indigo-500/20');
+	});
+
+	it('completedBg returns correct class for known colors', () => {
+		expect(completedBg('indigo')).toBe('bg-indigo-600');
+		expect(completedBg('violet')).toBe('bg-violet-600');
+	});
+
+	it('completedBg falls back to indigo for unknown colors', () => {
+		expect(completedBg('nonexistent')).toBe('bg-indigo-600');
+	});
+
+	it('colorBg returns solid background class for known colors', () => {
+		expect(colorBg('indigo')).toBe('bg-indigo-500');
+		expect(colorBg('sky')).toBe('bg-sky-500');
+	});
+
+	it('colorBg falls back to indigo for unknown colors', () => {
+		expect(colorBg('nonexistent')).toBe('bg-indigo-500');
 	});
 });
