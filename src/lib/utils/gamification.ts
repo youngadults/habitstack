@@ -69,8 +69,14 @@ export function calculateStreak(completedDates: string[]): number {
 	today.setHours(0, 0, 0, 0);
 
 	const sorted = [...new Set(completedDates)].sort().reverse();
-	const mostRecent = new Date(sorted[0]);
-	mostRecent.setHours(0, 0, 0, 0);
+
+	// Parse YYYY-MM-DD as local date (not UTC) to avoid timezone shifts
+	const parseLocal = (dateStr: string): Date => {
+		const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
+		return new Date(y, m - 1, d);
+	};
+
+	const mostRecent = parseLocal(sorted[0]);
 
 	// If most recent is more than 1 day ago, streak is broken
 	const diffDays = Math.floor((today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));
@@ -78,10 +84,8 @@ export function calculateStreak(completedDates: string[]): number {
 
 	let streak = 1;
 	for (let i = 1; i < sorted.length; i++) {
-		const curr = new Date(sorted[i]);
-		curr.setHours(0, 0, 0, 0);
-		const prev = new Date(sorted[i - 1]);
-		prev.setHours(0, 0, 0, 0);
+		const curr = parseLocal(sorted[i]);
+		const prev = parseLocal(sorted[i - 1]);
 
 		const dayDiff = Math.floor((prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
 		if (dayDiff === 1) {

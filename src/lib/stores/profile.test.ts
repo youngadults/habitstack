@@ -2,73 +2,102 @@ import { describe, it, expect } from 'vitest';
 import { checkIfFullStackToday } from './profile';
 import type { Stack, Habit, Completion } from '$lib/types';
 
-describe('checkIfFullStackToday', () => {
-	const today = new Date().toISOString().split('T')[0];
+// Helper factories
+function makeStack(id: string): Stack {
+	return {
+		id, user_id: 'user1', name: `Stack ${id}`, trigger: 'after trigger',
+		color: 'indigo', icon: '☕', sort_order: 0,
+		created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z'
+	};
+}
 
-	it('returns false when stacks have no habits', () => {
-		const stacks: Stack[] = [
-			{ id: 's1', user_id: 'u1', name: 'Test', trigger: 'After coffee', color: 'indigo', icon: '☕', sort_order: 0, created_at: '', updated_at: '' }
-		];
-		expect(checkIfFullStackToday(stacks, [], [])).toBe(false);
+function makeHabit(id: string, stackId: string): Habit {
+	return {
+		id, stack_id: stackId, user_id: 'user1', name: `Habit ${id}`,
+		sort_order: 0, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z'
+	};
+}
+
+function makeCompletion(habitId: string, date: string): Completion {
+	return {
+		id: `c-${habitId}-${date}`, habit_id: habitId, user_id: 'user1',
+		completed_at: date, created_at: '2024-01-01T00:00:00Z'
+	};
+}
+
+describe('checkIfFullStackToday', () => {
+	it('returns false when there are no stacks', () => {
+		expect(checkIfFullStackToday([], [], [])).toBe(false);
 	});
 
-	it('returns false when habits are not all completed today', () => {
-		const stacks: Stack[] = [
-			{ id: 's1', user_id: 'u1', name: 'Test', trigger: 'After coffee', color: 'indigo', icon: '☕', sort_order: 0, created_at: '', updated_at: '' }
-		];
-		const habits: Habit[] = [
-			{ id: 'h1', stack_id: 's1', user_id: 'u1', name: 'Brush teeth', sort_order: 0, created_at: '', updated_at: '' },
-			{ id: 'h2', stack_id: 's1', user_id: 'u1', name: 'Meditate', sort_order: 1, created_at: '', updated_at: '' }
-		];
-		const completions: Completion[] = [
-			{ id: 'c1', habit_id: 'h1', user_id: 'u1', completed_at: today, created_at: '' }
-		];
-		expect(checkIfFullStackToday(stacks, habits, completions)).toBe(false);
+	it('returns false when a stack has no habits', () => {
+		const stack = makeStack('s1');
+		expect(checkIfFullStackToday([stack], [], [])).toBe(false);
+	});
+
+	it('returns false when habits exist but none completed today', () => {
+		const stack = makeStack('s1');
+		const habit = makeHabit('h1', 's1');
+		const yesterday = new Date();
+		yesterday.setDate(yesterday.getDate() - 1);
+		const completion = makeCompletion('h1', yesterday.toISOString().slice(0, 10));
+
+		expect(checkIfFullStackToday([stack], [habit], [completion])).toBe(false);
 	});
 
 	it('returns true when all habits in a stack are completed today', () => {
-		const stacks: Stack[] = [
-			{ id: 's1', user_id: 'u1', name: 'Test', trigger: 'After coffee', color: 'indigo', icon: '☕', sort_order: 0, created_at: '', updated_at: '' }
-		];
-		const habits: Habit[] = [
-			{ id: 'h1', stack_id: 's1', user_id: 'u1', name: 'Brush teeth', sort_order: 0, created_at: '', updated_at: '' },
-			{ id: 'h2', stack_id: 's1', user_id: 'u1', name: 'Meditate', sort_order: 1, created_at: '', updated_at: '' }
-		];
-		const completions: Completion[] = [
-			{ id: 'c1', habit_id: 'h1', user_id: 'u1', completed_at: today, created_at: '' },
-			{ id: 'c2', habit_id: 'h2', user_id: 'u1', completed_at: today, created_at: '' }
-		];
-		expect(checkIfFullStackToday(stacks, habits, completions)).toBe(true);
+		const stack = makeStack('s1');
+		const h1 = makeHabit('h1', 's1');
+		const h2 = makeHabit('h2', 's1');
+		const today = new Date().toISOString().slice(0, 10);
+		const c1 = makeCompletion('h1', today);
+		const c2 = makeCompletion('h2', today);
+
+		expect(checkIfFullStackToday([stack], [h1, h2], [c1, c2])).toBe(true);
 	});
 
-	it('returns true when any stack is fully completed', () => {
-		const stacks: Stack[] = [
-			{ id: 's1', user_id: 'u1', name: 'Morning', trigger: 'Wake up', color: 'indigo', icon: '☀️', sort_order: 0, created_at: '', updated_at: '' },
-			{ id: 's2', user_id: 'u1', name: 'Evening', trigger: 'After dinner', color: 'violet', icon: '🌙', sort_order: 1, created_at: '', updated_at: '' }
-		];
-		const habits: Habit[] = [
-			{ id: 'h1', stack_id: 's1', user_id: 'u1', name: 'Brush', sort_order: 0, created_at: '', updated_at: '' },
-			{ id: 'h2', stack_id: 's2', user_id: 'u1', name: 'Read', sort_order: 0, created_at: '', updated_at: '' },
-			{ id: 'h3', stack_id: 's2', user_id: 'u1', name: 'Stretch', sort_order: 1, created_at: '', updated_at: '' }
-		];
-		// Only stack s2 is fully completed
-		const completions: Completion[] = [
-			{ id: 'c1', habit_id: 'h2', user_id: 'u1', completed_at: today, created_at: '' },
-			{ id: 'c2', habit_id: 'h3', user_id: 'u1', completed_at: today, created_at: '' }
-		];
-		expect(checkIfFullStackToday(stacks, habits, completions)).toBe(true);
+	it('returns false when only some habits in a stack are completed today', () => {
+		const stack = makeStack('s1');
+		const h1 = makeHabit('h1', 's1');
+		const h2 = makeHabit('h2', 's1');
+		const today = new Date().toISOString().slice(0, 10);
+		const c1 = makeCompletion('h1', today);
+
+		expect(checkIfFullStackToday([stack], [h1, h2], [c1])).toBe(false);
 	});
 
-	it('ignores completions from other days', () => {
-		const stacks: Stack[] = [
-			{ id: 's1', user_id: 'u1', name: 'Test', trigger: 'After coffee', color: 'indigo', icon: '☕', sort_order: 0, created_at: '', updated_at: '' }
-		];
-		const habits: Habit[] = [
-			{ id: 'h1', stack_id: 's1', user_id: 'u1', name: 'Brush', sort_order: 0, created_at: '', updated_at: '' },
-		];
-		const completions: Completion[] = [
-			{ id: 'c1', habit_id: 'h1', user_id: 'u1', completed_at: '2020-01-01', created_at: '' }
-		];
-		expect(checkIfFullStackToday(stacks, habits, completions)).toBe(false);
+	it('returns true if any stack is fully complete, even if others are not', () => {
+		const s1 = makeStack('s1');
+		const s2 = makeStack('s2');
+		const h1 = makeHabit('h1', 's1');
+		const h2 = makeHabit('h2', 's2');
+		const today = new Date().toISOString().slice(0, 10);
+		const c2 = makeCompletion('h2', today);
+
+		// s2 is fully complete, s1 is not (no completions)
+		expect(checkIfFullStackToday([s1, s2], [h1, h2], [c2])).toBe(true);
+	});
+
+	it('ignores completions from other habits not in the stack', () => {
+		const stack = makeStack('s1');
+		const h1 = makeHabit('h1', 's1');
+		const today = new Date().toISOString().slice(0, 10);
+		// Completion for a different habit not in this stack
+		const wrongCompletion = makeCompletion('h_other', today);
+
+		expect(checkIfFullStackToday([stack], [h1], [wrongCompletion])).toBe(false);
+	});
+
+	it('handles multiple stacks correctly', () => {
+		const s1 = makeStack('s1');
+		const s2 = makeStack('s2');
+		const h1 = makeHabit('h1', 's1');
+		const h2 = makeHabit('h2', 's2');
+		const today = new Date().toISOString().slice(0, 10);
+		const c1 = makeCompletion('h1', today);
+		const c2 = makeCompletion('h2', today);
+
+		// Both stacks fully complete
+		expect(checkIfFullStackToday([s1, s2], [h1, h2], [c1, c2])).toBe(true);
 	});
 });
