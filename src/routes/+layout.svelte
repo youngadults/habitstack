@@ -137,6 +137,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Stackr</title>
+</svelte:head>
+
 {#if !ready}
 	<div class="flex items-center justify-center min-h-screen">
 		<div class="text-center">
