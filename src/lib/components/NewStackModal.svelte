@@ -23,7 +23,7 @@
 		onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
 		onkeydown={(e) => { if (e.key === 'Escape') onclose(); }}
 	>
-		<div class="w-full max-w-lg bg-slate-900 rounded-t-2xl px-6 pt-6 pb-14 animate-slide-up safe-bottom">
+		<div class="w-full max-w-lg bg-slate-900 rounded-t-2xl px-6 pt-6 pb-20 animate-slide-up">
 			<h2 class="text-lg font-bold text-white mb-4">Create New Stack</h2>
 
 			<div class="space-y-4">
